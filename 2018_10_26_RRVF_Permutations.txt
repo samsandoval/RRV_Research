@@ -1,0 +1,67 @@
+# Code to run the RRV study
+# Sam Sandoval 10/26/2018
+# ______________ Section 1 : Basic Information ____________________________
+##_______________        1.1 Input Variables
+library(plyr)
+#install.packages("rgl")
+require("rgl")
+require("RColorBrewer")
+rm(list = ls())
+timesteps = 100
+Vulnerability = 20
+EMV_No_Def = 100
+Half_Permutations = 0
+Half_TS = timesteps/2
+#as.integer(Half_TS)
+##_______________        1.1 Estimate Number of permutations & building matrices
+for (counter in 1:Half_TS){Half_Permutations <- Half_Permutations + counter}
+Permutations <- Half_Permutations*2
+Reliability <- matrix(data = NA, nrow = Permutations, ncol = 1)
+Resilience  <- matrix(data = NA, nrow = Permutations, ncol = 1)
+Fragility   <- matrix(data = NA, nrow = Permutations, ncol = 1)
+EMV         <- matrix(data = NA, nrow = Permutations, ncol = 1)
+EMV_Typical <- matrix(data = NA, nrow = Permutations, ncol = 1)
+# ______________ Section 2 : Estimating RRVF & EMV ____________________________
+##_______________        1.1 Upper half of Reliability
+counter = 0
+j = 0
+Deficits = 0
+for (j in 1:Half_TS){
+  for (Deficits in 1:j){
+    counter <- counter + 1
+    Reliability [counter,] <- (1 - j/timesteps)
+    Resilience [counter,] <- (Deficits/j)
+    Fragility[counter,] <- (Deficits/(timesteps-j))
+    EMV[counter,] <- ((Reliability[counter,]*(1-Fragility[counter,]))*(EMV_No_Def*2) + (Reliability[counter,]*Fragility[counter,])*(EMV_No_Def+(EMV_No_Def-Vulnerability)) + ((1-Reliability[counter,])*Resilience[counter,])*((EMV_No_Def-Vulnerability)+EMV_No_Def) + ((1-Reliability[counter,])*(1-Resilience[counter,]))*((EMV_No_Def-Vulnerability)*2))/2
+    EMV_Typical[counter,] <- (Reliability[counter,]*EMV_No_Def)+((1-Reliability[counter,])*(EMV_No_Def-Vulnerability))
+  } }
+##_______________        1.1 Lower half of Reliability
+a = 0
+b = 0
+counter <- Permutations/2
+for (a in (Half_TS+1):(timesteps-1)){
+  for (b in 1:(timesteps-a)) {
+    counter <- counter + 1
+    Reliability [counter,] <- (1 - a/timesteps)
+    Resilience [counter,] <- (b/a)
+    Fragility[counter,] <- (b/(timesteps-a))
+    EMV[counter,] <- ((Reliability[counter,]*(1-Fragility[counter,]))*(EMV_No_Def*2) + (Reliability[counter,]*Fragility[counter,])*(EMV_No_Def+(EMV_No_Def-Vulnerability)) + ((1-Reliability[counter,])*Resilience[counter,])*((EMV_No_Def-Vulnerability)+EMV_No_Def) + ((1-Reliability[counter,])*(1-Resilience[counter,]))*((EMV_No_Def-Vulnerability)*2))/2
+    EMV_Typical[counter,] <- (Reliability[counter,]*EMV_No_Def)+((1-Reliability[counter,])*(EMV_No_Def-Vulnerability))
+  }
+}
+Performance_Matrix <- cbind(Reliability,Resilience,Fragility,EMV,EMV_Typical)
+colnames(Performance_Matrix) <- c("Reliability","Resilience","Fragility","EMV","EMV Traditional")
+
+# ______________ Section 3 : Plotting ____________________________
+plot(Reliability,Fragility,main="Reliability Vs Fragility",xlab="Reliability",ylab="Fragility")
+plot(Reliability,Resilience,main="Reliability Vs Resilience",xlab="Reliability",ylab="Resilience")
+plot3d(Reliability[,], #x variable
+       Resilience[,],  #y variable
+       EMV[,],         #z variable
+       xlab = "Reliability",
+       ylab = "Resilience",
+       zlab = "EMV (Expected Monetary Value)",
+       col = brewer.pal(5,"Blues"),
+       size = 6)
+
+

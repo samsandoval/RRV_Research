@@ -1,0 +1,72 @@
+# Code to run the RRV study
+# Sam Sandoval 10/13/2018
+#
+# ______________ Section 1 : Basic Information ____________________________
+##_______________        1.1 Defining constants
+library(plyr)
+rm(list = ls())
+timesteps = 100
+Num_of_traces = 1000
+Reliability_Target <- 0.7
+Initial_Year_Def_NoDef = 0 # If the initial year starts with No Deficit then, Initial_seed = 0, Otherwise Initial_seed = 1 
+
+##_______________        1.2 Miscellaneous
+Num_of_TimeSteps = timesteps + 1
+set.seed(150)
+dat = runif(Num_of_TimeSteps*Num_of_traces, 0, 1)
+# ______________ End of Section 1 _________________________________________
+
+
+# ______________ Section 2: Performance Criteria __________________________
+##_______________        2.1 Estimating the Deficit - No Deficit Matrix
+# This line is generating n number of random numbers
+Matrix_Def_NoDef <- matrix (data = dat, nrow = Num_of_TimeSteps, ncol = Num_of_traces)
+colnames(Matrix_Def_NoDef) <- paste("Trace", 1:Num_of_traces)
+# Deficit = 1, No Deficit = 0
+Matrix_Def_NoDef <- ifelse(Matrix_Def_NoDef <= Reliability_Target, 0, 1)
+Matrix_Def_NoDef[1,] <- Initial_Year_Def_NoDef
+Matrix_Total_Def <- matrix(data = colSums(Matrix_Def_NoDef ==1)- ifelse((Initial_Year_Def_NoDef==1),1,0) )
+colnames(Matrix_Total_Def) <- c("Number of Deficits")
+
+##_______________        2.2 Reliability Matrix
+Matrix_Reliability <- matrix(data = NA, nrow = Num_of_traces, ncol = 1)
+Matrix_Reliability <- ((timesteps - Matrix_Total_Def)/timesteps)
+colnames(Matrix_Reliability) <- c("Reliability")
+
+##_______________        2.3 Resilience Matrix
+Matrix_Count_Resilience <- matrix(data = NA, nrow = timesteps, ncol = Num_of_traces)
+for (j in 1:Num_of_traces){
+  for(i in 1:timesteps)
+  {Matrix_Count_Resilience[i,j] = ifelse((Matrix_Def_NoDef[i,j] == 1)&(Matrix_Def_NoDef[i+1,j]==0),1,0)}}
+colnames(Matrix_Count_Resilience) <- paste("Trace", 1:Num_of_traces)
+Matrix_Total_Count_Resil <- matrix(data = colSums(Matrix_Count_Resilience !=0))
+colnames(Matrix_Total_Count_Resil) <- c("Number of Resilience")
+Matrix_Resilience <- matrix(data = NA, nrow = Num_of_traces, ncol = 1)
+#for(i in 1:Num_of_traces)
+#    {Matrix_Resilience[i,] = Matrix_Total_Count_Resil[i,]/Matrix_Total_Def[i,] }
+for(i in 1:Num_of_traces)
+{Matrix_Resilience[i,] = ifelse((Matrix_Total_Def[i,]==timesteps),0,ifelse( (Matrix_Total_Def[i,]==0),1,ifelse((Matrix_Total_Def[i,]==1)&(Matrix_Def_NoDef[timesteps,i]==1),1,ifelse((Matrix_Total_Def[i,]==timesteps-1)&(Matrix_Def_NoDef[1,i]==0),0,Matrix_Total_Count_Resil[i,]/Matrix_Total_Def[i,]))))}
+colnames(Matrix_Resilience) <- c("Resilience")
+
+##_______________        2.3 Fragility Matrix
+Matrix_Count_Fragility <- matrix(data = NA, nrow = timesteps, ncol = Num_of_traces)
+for (j in 1:Num_of_traces){
+  for(i in 1:timesteps)
+  {Matrix_Count_Fragility[i,j] = ifelse((Matrix_Def_NoDef[i,j] == 0)&(Matrix_Def_NoDef[i+1,j]==1),1,0)}}
+colnames(Matrix_Count_Fragility) <- paste("Trace", 1:Num_of_traces)
+Matrix_Total_Count_Fragility <- matrix(data = colSums(Matrix_Count_Fragility !=0))
+colnames(Matrix_Total_Count_Fragility) <- paste("Number of Fragility")
+Matrix_Total_No_Def <- matrix(data = colSums(Matrix_Def_NoDef ==0)- ifelse((Initial_Year_Def_NoDef==0),1,0))
+colnames(Matrix_Total_No_Def) <- c("Number of No Deficits")
+Matrix_Fragility <- matrix(data = NA, nrow = Num_of_traces, ncol = 1)
+for(i in 1:Num_of_traces)
+{Matrix_Fragility[i,] = ifelse((Matrix_Total_Def[i,]==timesteps),1,ifelse( (Matrix_Total_Def[i,]==0),0,ifelse((Matrix_Total_Def[i,]==timesteps-1)&(Matrix_Def_NoDef[timesteps,i]==0),1,ifelse((Matrix_Total_Def[i,]==1)&(Matrix_Def_NoDef[1,i]==1),0,Matrix_Total_Count_Fragility[i,]/Matrix_Total_No_Def[i,]))))}
+colnames(Matrix_Fragility) <- c("Fragility")
+
+##_______________        2.4 Integrating Matrix
+Perfomrance_Matrix <- cbind(Matrix_Reliability,Matrix_Resilience,Matrix_Fragility)
+
+# ______________ Section 3 : Plotting ____________________________
+plot(Matrix_Reliability,Matrix_Resilience,main="Reliability Vs Resilience",xlab="Reliability",ylab="Resilience")
+
+

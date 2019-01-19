@@ -1,0 +1,121 @@
+---
+title: "RRV_Test"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Section 1 : Basic Information
+## 1.1 Constants
+```{r}
+library(plyr)
+rm(list = ls())
+timesteps = 100
+Num_of_traces = 10
+Reliability_Target <- 0.7
+Initial_Year_Def_NoDef = 0 # If the initial year starts with No Deficit then, Initial_seed = 0, Otherwise Initial_seed = 1 
+#Print
+timesteps
+Num_of_traces
+Reliability_Target
+```
+
+## 1.1 Miscellaneous
+```{r}
+Num_of_TimeSteps = timesteps + 1
+set.seed(150)
+dat = runif(Num_of_TimeSteps*Num_of_traces, 0, 1)
+#print
+dat
+```
+
+# Section 2 : Estimation of Performance Criteria
+## 2.1 Matrix of Deficits and No Deficits
+```{r}
+# This line is generating n number of random numbers
+Matrix_Def_NoDef <- matrix (data = dat, nrow = Num_of_TimeSteps, ncol = Num_of_traces)
+colnames(Matrix_Def_NoDef) <- paste("Trace", 1:Num_of_traces)
+# Deficit = 1, No Deficit = 0
+Matrix_Def_NoDef <- ifelse(Matrix_Def_NoDef <= Reliability_Target, 0, 1)
+Matrix_Def_NoDef[1,] <- Initial_Year_Def_NoDef
+Matrix_Total_Def <- matrix(data = colSums(Matrix_Def_NoDef ==1)- ifelse((Initial_Year_Def_NoDef==1),1,0) )
+colnames(Matrix_Total_Def) <- c("Number of Deficits")
+#Print
+Matrix_Def_NoDef
+
+```
+## 2.2 Matrix of Reliabilities
+```{r}
+Matrix_Reliability <- matrix(data = NA, nrow = Num_of_traces, ncol = 1)
+Matrix_Reliability <- ((timesteps - Matrix_Total_Def)/timesteps)
+colnames(Matrix_Reliability) <- c("Reliability")
+#Print
+Matrix_Total_Def
+Matrix_Reliability
+```
+## 2.3 Matrix of Resilience
+```{r}
+Matrix_Count_Resilience <- matrix(data = NA, nrow = timesteps, ncol = Num_of_traces)
+for (j in 1:Num_of_traces){
+  for(i in 1:timesteps)
+    {Matrix_Count_Resilience[i,j] = ifelse((Matrix_Def_NoDef[i,j] == 1)&(Matrix_Def_NoDef[i+1,j]==0),1,0)}}
+colnames(Matrix_Count_Resilience) <- paste("Trace", 1:Num_of_traces)
+Matrix_Total_Count_Resil <- matrix(data = colSums(Matrix_Count_Resilience !=0))
+colnames(Matrix_Total_Count_Resil) <- c("Number of Resilience")
+Matrix_Resilience <- matrix(data = NA, nrow = Num_of_traces, ncol = 1)
+#for(i in 1:Num_of_traces)
+#    {Matrix_Resilience[i,] = Matrix_Total_Count_Resil[i,]/Matrix_Total_Def[i,] }
+for(i in 1:Num_of_traces)
+    {Matrix_Resilience[i,] = ifelse((Matrix_Total_Def[i,]==timesteps),0,ifelse( (Matrix_Total_Def[i,]==0),1,ifelse((Matrix_Total_Def[i,]==1)&(Matrix_Def_NoDef[timesteps,i]==1),1,ifelse((Matrix_Total_Def[i,]==timesteps-1)&(Matrix_Def_NoDef[1,i]==0),0,Matrix_Total_Count_Resil[i,]/Matrix_Total_Def[i,]))))}
+colnames(Matrix_Resilience) <- c("Resilience")
+# Print
+Matrix_Def_NoDef
+Matrix_Count_Resilience
+Matrix_Total_Def
+Matrix_Total_Count_Resil
+Matrix_Resilience
+```
+## 2.3 Matrix of Fragility
+```{r}
+Matrix_Count_Fragility <- matrix(data = NA, nrow = timesteps, ncol = Num_of_traces)
+for (j in 1:Num_of_traces){
+  for(i in 1:timesteps)
+    {Matrix_Count_Fragility[i,j] = ifelse((Matrix_Def_NoDef[i,j] == 0)&(Matrix_Def_NoDef[i+1,j]==1),1,0)}}
+colnames(Matrix_Count_Fragility) <- paste("Trace", 1:Num_of_traces)
+Matrix_Total_Count_Fragility <- matrix(data = colSums(Matrix_Count_Fragility !=0))
+colnames(Matrix_Total_Count_Fragility) <- paste("Number of Fragility")
+Matrix_Total_No_Def <- matrix(data = colSums(Matrix_Def_NoDef ==0)- ifelse((Initial_Year_Def_NoDef==0),1,0))
+colnames(Matrix_Total_No_Def) <- c("Number of No Deficits")
+Matrix_Fragility <- matrix(data = NA, nrow = Num_of_traces, ncol = 1)
+for(i in 1:Num_of_traces)
+    {Matrix_Fragility[i,] = ifelse((Matrix_Total_Def[i,]==timesteps),1,ifelse( (Matrix_Total_Def[i,]==0),0,ifelse((Matrix_Total_Def[i,]==timesteps-1)&(Matrix_Def_NoDef[timesteps,i]==0),1,ifelse((Matrix_Total_Def[i,]==1)&(Matrix_Def_NoDef[1,i]==1),0,Matrix_Total_Count_Fragility[i,]/Matrix_Total_No_Def[i,]))))}
+colnames(Matrix_Fragility) <- c("Fragility")
+#Print
+Matrix_Def_NoDef
+Matrix_Count_Fragility
+Matrix_Total_Def
+Matrix_Total_No_Def
+Matrix_Total_Count_Fragility
+Matrix_Fragility
+```
+## 2.4 Binding Matrix
+```{r}
+Matrix_Performance_Criteria <- cbind(Matrix_Reliability,Matrix_Resilience,Matrix_Fragility)
+Matrix_Performance_Criteria
+Matrix_Total_Def
+Matrix_Total_No_Def
+Matrix_Total_Count_Resil
+Matrix_Total_Count_Fragility
+```
+
+# Section 3 :Plotting
+```{r}
+plot(Matrix_Reliability,Matrix_Resilience,main="Reliability Vs Resilience",xlab="Reliability",ylab="Resilience")
+#Print
+Matrix_Reliability
+Matrix_Resilience
+```
+
+
